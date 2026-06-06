@@ -1325,6 +1325,27 @@
             <main className="flex-1 relative bg-slate-50 dark:bg-slate-950 overflow-hidden animate-fade-in">
 
               <div className="absolute top-3 right-3 sm:top-auto sm:bottom-4 sm:right-4 flex items-center gap-1 sm:gap-1.5 z-10 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-1 sm:p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-md transition-colors">
+                {/* 削除ボタン（スマホ操作性向上のため追加） */}
+                <button 
+                  onClick={() => {
+                    if (selectedNodeId) {
+                      deleteSelectedNode();
+                    } else if (selectedEdge && mode === 'connection') {
+                      disconnectSelectedEdge();
+                    }
+                  }}
+                  disabled={(!selectedNodeId && !(selectedEdge && mode === 'connection')) || !!activeRotationPreview}
+                  className={`p-2 rounded-lg transition-colors border shadow-sm shrink-0 ${
+                    ((!selectedNodeId && !(selectedEdge && mode === 'connection')) || !!activeRotationPreview)
+                      ? 'opacity-30 cursor-not-allowed bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'
+                      : 'hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800 bg-rose-50/20 dark:bg-rose-950/10'
+                  }`}
+                  title="選択オブジェクトを削除"
+                >
+                  <IconTrash />
+                </button>
+                <div className="w-[1px] h-5 sm:h-6 bg-slate-200 dark:bg-slate-700 mx-0.5 sm:mx-1"></div>
+
                 <button 
                   onClick={handleUndo}
                   disabled={history.length === 0 || !!activeRotationPreview}
