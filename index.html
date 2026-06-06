@@ -30,12 +30,13 @@
       padding: 0;
       width: 100%;
       height: 100%;
+      height: 100dvh;
       overflow: hidden;
       touch-action: none;
     }
   </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen">
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -1039,7 +1040,7 @@
       };
 
       return (
-        <div className="flex flex-col h-full overflow-hidden select-none bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 transition-colors duration-300">
+        <div className="flex flex-col h-screen h-[100dvh] overflow-hidden select-none bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 transition-colors duration-300">
           
           <header className="flex items-center justify-between px-4 sm:px-6 py-3 bg-gradient-to-r from-teal-600 via-teal-700 to-indigo-800 text-white shadow-md z-10">
             <div className="flex items-center gap-2 sm:gap-3">
@@ -1321,9 +1322,9 @@
               </div>
             </aside>
 
-            <main className="flex-1 relative h-full bg-slate-50 dark:bg-slate-950 overflow-hidden animate-fade-in">
+            <main className="flex-1 relative bg-slate-50 dark:bg-slate-950 overflow-hidden animate-fade-in">
 
-              <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 flex items-center gap-1 sm:gap-1.5 z-10 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-1 sm:p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-md transition-colors">
+              <div className="absolute bottom-16 right-3 sm:bottom-4 sm:right-4 flex items-center gap-1 sm:gap-1.5 z-10 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-1 sm:p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-md transition-colors">
                 <button 
                   onClick={handleUndo}
                   disabled={history.length === 0 || !!activeRotationPreview}
