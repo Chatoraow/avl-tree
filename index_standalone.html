@@ -1,0 +1,1788 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AVL木ビジュアル学習シミュレータ (自己完結版)</title>
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Tailwind CSS v3 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          animation: {
+            'spin-slow': 'spin 8s linear infinite',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* ページスクロールの干渉を100%防止するグローバル設定 */
+    html, body, #root {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- インライン代替 SVG アイコン定義（Lucide CDNへの依存を排しダブルクリック時のエラーをゼロにする） ---
+    const IconPlus = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>;
+    const IconTrash = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.34 9m-4.72 0L9 9m5 12.42H8.26A2.25 2.25 0 016 19.18V6.75h12v12.43a2.25 2.25 0 01-2.26 2.25zM4.5 6.75h15M9 3.75h6" /></svg>;
+    const IconRefresh = ({ className }) => <svg className={`w-5 h-5 ${className}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>;
+    const IconPlay = () => <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>;
+    const IconCheck = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>;
+    const IconSun = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>;
+    const IconMoon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>;
+    const IconZoomIn = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" /></svg>;
+    const IconZoomOut = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM7.5 10.5h6" /></svg>;
+    const IconMaximize = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 20.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>;
+    const IconAward = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-6.75c-.621 0-1.125.504-1.125 1.125v3.375m9 0h-9M9 10.5a3 3 0 116 0M3 6h18" /></svg>;
+    const IconAlert = () => <svg className="w-5 h-5 text-rose-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>;
+    const IconUndo = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>;
+    const IconMenu = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>;
+    const IconX = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
+
+    const INITIAL_NODES = {
+      "n40": { id: "n40", val: 40, left: "n20", right: "n50", parent: null },
+      "n20": { id: "n20", val: 20, left: "n10", right: "n30", parent: "n40" },
+      "n50": { id: "n50", val: 50, left: null, right: null, parent: "n40" },
+      "n10": { id: "n10", val: 10, left: null, right: null, parent: "n20" },
+      "n30": { id: "n30", val: 30, left: null, right: null, parent: "n20" }
+    };
+
+    function App() {
+      const [nodes, setNodes] = useState(INITIAL_NODES);
+      const [nodePositions, setNodePositions] = useState({});
+      const [mode, setMode] = useState('connection');
+      const [selectedNodeId, setSelectedNodeId] = useState(null);
+      const [selectedEdge, setSelectedEdge] = useState(null);
+      const [darkMode, setDarkMode] = useState(false);
+      
+      const [pan, setPan] = useState({ x: 100, y: 50 });
+      const [zoom, setZoom] = useState(1.0);
+      const [isPanning, setIsPanning] = useState(false);
+      const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+      
+      // --- ノードドラッグ移動状態 ---
+      const [draggingNodeId, setDraggingNodeId] = useState(null);
+      const [nodeDragOffset, setNodeDragOffset] = useState({ x: 0, y: 0 });
+      const [dragSubtreePositions, setDragSubtreePositions] = useState({});
+      const [dragStartNodePos, setDragStartNodePos] = useState({ x: 0, y: 0 });
+      
+      const [dragStart, setDragStart] = useState(null);
+      const [dragCurrent, setDragCurrent] = useState(null);
+      const [dragHoverNodeId, setDragHoverNodeId] = useState(null);
+      
+      const [newValue, setNewValue] = useState('');
+      const [puzzleId, setPuzzleId] = useState(null);
+      const [toast, setToast] = useState(null);
+      const [diagnosis, setDiagnosis] = useState(null);
+      
+      // --- 履歴（Undo）状態 ---
+      const [history, setHistory] = useState([]);
+
+      // --- 回転プレビュー状態 ---
+      const [activeRotationPreview, setActiveRotationPreview] = useState(null);
+
+      // --- モバイルサイドバー開閉状態 ---
+      const [sidebarOpen, setSidebarOpen] = useState(false);
+
+      const saveToHistory = () => {
+        setHistory(prev => {
+          const limit = 50;
+          const next = [...prev, {
+            nodes: JSON.parse(JSON.stringify(nodes)),
+            nodePositions: JSON.parse(JSON.stringify(nodePositions))
+          }];
+          if (next.length > limit) {
+            next.shift();
+          }
+          return next;
+        });
+      };
+
+      const handleUndo = () => {
+        if (history.length === 0) return;
+        setHistory(prev => {
+          const next = [...prev];
+          const prevState = next.pop();
+          setNodes(prevState.nodes);
+          setNodePositions(prevState.nodePositions);
+          setSelectedNodeId(null);
+          setSelectedEdge(null);
+          return next;
+        });
+        showToast("一手戻しました", "info");
+      };
+      
+      const svgRef = useRef(null);
+      const gRef = useRef(null);
+
+      // 初回起動時、初期ノードのレイアウト位置を反映
+      useEffect(() => {
+        const initialLayout = calculateLayout(INITIAL_NODES);
+        const positions = {};
+        Object.keys(initialLayout).forEach(id => {
+          positions[id] = { x: initialLayout[id].x, y: initialLayout[id].y };
+        });
+        setNodePositions(positions);
+      }, []);
+
+      useEffect(() => {
+        if (toast) {
+          const timer = setTimeout(() => setToast(null), 4000);
+          return () => clearTimeout(timer);
+        }
+      }, [toast]);
+
+      useEffect(() => {
+        const root = window.document.documentElement;
+        if (darkMode) {
+          root.classList.add('dark');
+        } else {
+          root.classList.remove('dark');
+        }
+      }, [darkMode]);
+
+      useEffect(() => {
+        const { bfs, heights } = calculateHeightsAndBF(nodes);
+        const result = diagnoseImbalance(nodes, bfs, heights);
+        setDiagnosis(result);
+      }, [nodes]);
+
+      const showToast = (message, type = 'info') => {
+        setToast({ message, type });
+      };
+
+      const calculateHeightsAndBF = (currentNodes) => {
+        const heights = {};
+        const bfs = {};
+        
+        const getHeight = (nodeId) => {
+          if (!nodeId || !currentNodes[nodeId]) return 0;
+          if (heights[nodeId] !== undefined) return heights[nodeId];
+          
+          const node = currentNodes[nodeId];
+          const leftH = getHeight(node.left);
+          const rightH = getHeight(node.right);
+          
+          heights[nodeId] = Math.max(leftH, rightH) + 1;
+          bfs[nodeId] = leftH - rightH;
+          
+          return heights[nodeId];
+        };
+        
+        Object.keys(currentNodes).forEach(nodeId => {
+          getHeight(nodeId);
+        });
+        
+        return { heights, bfs };
+      };
+
+      const calculateLayout = (currentNodes) => {
+        const layout = {};
+        const roots = Object.values(currentNodes).filter(
+          node => !node.parent || !currentNodes[node.parent]
+        );
+        
+        roots.sort((a, b) => a.val - b.val);
+        
+        let currentXIndex = 0;
+        
+        const traverse = (nodeId, depth) => {
+          if (!nodeId || !currentNodes[nodeId]) return;
+          const node = currentNodes[nodeId];
+          
+          traverse(node.left, depth + 1);
+          
+          layout[node.id] = {
+            xIndex: currentXIndex,
+            depth: depth,
+            x: currentXIndex * 68 + 80, 
+            y: depth * 72 + 50
+          };
+          currentXIndex += 1;
+          
+          traverse(node.right, depth + 1);
+        };
+        
+        roots.forEach((root, idx) => {
+          if (idx > 0) {
+            currentXIndex += 0.45;
+          }
+          traverse(root.id, 0);
+        });
+        
+        return layout;
+      };
+      const layout = calculateLayout(nodes);
+      const { heights, bfs } = calculateHeightsAndBF(nodes);
+
+      // 各ノードの描画座標を決定する（自由ドラッグ位置、無ければ自動レイアウト位置）
+      const getNodePos = (nodeId) => {
+        if (nodePositions[nodeId]) return nodePositions[nodeId];
+        if (layout[nodeId]) return layout[nodeId];
+        return { x: 0, y: 0 };
+      };
+
+      const getLocalCoords = (clientX, clientY) => {
+        if (!svgRef.current || !gRef.current) return { x: 0, y: 0 };
+        const svg = svgRef.current;
+        const g = gRef.current;
+        const pt = svg.createSVGPoint();
+        pt.x = clientX;
+        pt.y = clientY;
+        const localP = pt.matrixTransform(g.getScreenCTM().inverse());
+        return { x: localP.x, y: localP.y };
+      };
+
+      const findTargetNode = (x, y, excludeId) => {
+        let bestNodeId = null;
+        let minDistance = 26;
+        
+        Object.keys(nodes).forEach(nodeId => {
+          if (nodeId === excludeId) return;
+          const pos = getNodePos(nodeId);
+          if (!pos) return;
+          
+          const dx = x - pos.x;
+          const dy = y - pos.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < minDistance) {
+            minDistance = dist;
+            bestNodeId = nodeId;
+          }
+        });
+        
+        return bestNodeId;
+      };
+
+      const wouldCauseLoop = (fromId, toId) => {
+        if (fromId === toId) return true;
+        let currId = fromId;
+        while (currId) {
+          if (currId === toId) return true;
+          const node = nodes[currId];
+          currId = node ? node.parent : null;
+        }
+        return false;
+      };
+
+      const getSubtreeNodeIds = (currentNodes, rootId) => {
+        const ids = [];
+        const traverse = (id) => {
+          if (!id || !currentNodes[id]) return;
+          ids.push(id);
+          traverse(currentNodes[id].left);
+          traverse(currentNodes[id].right);
+        };
+        traverse(rootId);
+        return ids;
+      };
+
+      const handlePointerDownCanvas = (e) => {
+        // ポートドラッグ中、ノードドラッグ中、UI操作中の場合はパンを開始しない
+        if (e.target.tagName !== 'svg' && !e.target.classList.contains('canvas-bg')) return;
+        setIsPanning(true);
+        setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+        e.target.setPointerCapture(e.pointerId);
+      };
+
+      const handlePointerMoveCanvas = (e) => {
+        if (isPanning) {
+          setPan({
+            x: e.clientX - panStart.x,
+            y: e.clientY - panStart.y
+          });
+          return;
+        }
+
+        if (draggingNodeId) {
+          const localPos = getLocalCoords(e.clientX, e.clientY);
+          const newX = localPos.x - nodeDragOffset.x;
+          const newY = localPos.y - nodeDragOffset.y;
+          const deltaX = newX - dragStartNodePos.x;
+          const deltaY = newY - dragStartNodePos.y;
+          
+          setNodePositions(prev => {
+            const next = { ...prev };
+            Object.keys(dragSubtreePositions).forEach(id => {
+              const startPos = dragSubtreePositions[id];
+              next[id] = {
+                x: startPos.x + deltaX,
+                y: startPos.y + deltaY
+              };
+            });
+            return next;
+          });
+          return;
+        }
+        
+        if (dragStart) {
+          const localPos = getLocalCoords(e.clientX, e.clientY);
+          setDragCurrent(localPos);
+          const hoverId = findTargetNode(localPos.x, localPos.y, dragStart.nodeId);
+          setDragHoverNodeId(hoverId);
+        }
+      };
+
+      const handlePointerUpCanvas = (e) => {
+        if (isPanning) {
+          setIsPanning(false);
+          e.target.releasePointerCapture(e.pointerId);
+          return;
+        }
+
+        if (draggingNodeId) {
+          setDraggingNodeId(null);
+          setDragSubtreePositions({});
+          e.target.releasePointerCapture(e.pointerId);
+          return;
+        }
+        
+        if (dragStart) {
+          const sourceId = dragStart.nodeId;
+          const portType = dragStart.portType;
+          
+          const localPos = getLocalCoords(e.clientX, e.clientY);
+          const targetId = findTargetNode(localPos.x, localPos.y, sourceId);
+          
+          if (targetId) {
+            connectNodes(sourceId, targetId, portType);
+          }
+          
+          setDragStart(null);
+          setDragCurrent(null);
+          setDragHoverNodeId(null);
+        }
+      };
+
+      const handleNodePointerDown = (e, nodeId) => {
+        e.stopPropagation();
+        if (activeRotationPreview) return;
+        setSelectedEdge(null);
+        setSelectedNodeId(nodeId);
+        
+        saveToHistory();
+
+        const pos = getNodePos(nodeId);
+        const localPos = getLocalCoords(e.clientX, e.clientY);
+        
+        setDraggingNodeId(nodeId);
+        setNodeDragOffset({
+          x: localPos.x - pos.x,
+          y: localPos.y - pos.y
+        });
+        
+        const subtreeIds = getSubtreeNodeIds(nodes, nodeId);
+        const subtreePositions = {};
+        subtreeIds.forEach(id => {
+          subtreePositions[id] = getNodePos(id);
+        });
+        setDragSubtreePositions(subtreePositions);
+        setDragStartNodePos(pos);
+        
+        svgRef.current.setPointerCapture(e.pointerId);
+      };
+
+      const handlePortPointerDown = (e, nodeId, portType) => {
+        e.stopPropagation();
+        if (activeRotationPreview) return;
+        const pos = getNodePos(nodeId);
+        if (!pos) return;
+        
+        const portOffsetX = portType === 'L' ? -18 : 18;
+        const portOffsetY = 20;
+        
+        setDragStart({
+          nodeId,
+          portType,
+          startX: pos.x + portOffsetX,
+          startY: pos.y + portOffsetY
+        });
+        setDragCurrent({ x: pos.x + portOffsetX, y: pos.y + portOffsetY });
+        svgRef.current.setPointerCapture(e.pointerId);
+      };
+
+      const connectNodes = (parentId, childId, portType) => {
+        saveToHistory();
+        const updated = { ...nodes };
+        
+        // 循環参照（ループ）が発生するかチェック
+        if (wouldCauseLoop(parentId, childId)) {
+          // ループが発生する場合、ドラッグ元（parentId）の親リンクを自動的に切断してループを解消
+          const oldParentId = updated[parentId].parent;
+          if (oldParentId && updated[oldParentId]) {
+            const oldParent = { ...updated[oldParentId] };
+            if (oldParent.left === parentId) oldParent.left = null;
+            if (oldParent.right === parentId) oldParent.right = null;
+            updated[oldParentId] = oldParent;
+          }
+          updated[parentId] = { ...updated[parentId], parent: null };
+          showToast("循環参照を回避するため、古い親リンクを自動的に切断しました", "info");
+        }
+        
+        const prevParentId = updated[childId].parent;
+        if (prevParentId && updated[prevParentId]) {
+          const prevParent = { ...updated[prevParentId] };
+          if (prevParent.left === childId) prevParent.left = null;
+          if (prevParent.right === childId) prevParent.right = null;
+          updated[prevParentId] = prevParent;
+        }
+        
+        const parent = { ...updated[parentId] };
+        const prevChildId = portType === 'L' ? parent.left : parent.right;
+        if (prevChildId && updated[prevChildId]) {
+          updated[prevChildId] = { ...updated[prevChildId], parent: null };
+        }
+        
+        if (portType === 'L') {
+          parent.left = childId;
+        } else {
+          parent.right = childId;
+        }
+        updated[parentId] = parent;
+        updated[childId] = { ...updated[childId], parent: parentId };
+        
+        setNodes(updated);
+        showToast(`接続を作成しました: ${parent.val} ➔ ${updated[childId].val}`, "success");
+      };
+
+      const disconnectSelectedEdge = () => {
+        if (!selectedEdge) return;
+        saveToHistory();
+        const { fromId, toId, type } = selectedEdge;
+        
+        const updated = { ...nodes };
+        if (updated[fromId]) {
+          const parent = { ...updated[fromId] };
+          if (type === 'left') {
+            parent.left = null;
+          } else {
+            parent.right = null;
+          }
+          updated[fromId] = parent;
+        }
+        
+        if (updated[toId]) {
+          updated[toId] = { ...updated[toId], parent: null };
+        }
+        
+        setNodes(updated);
+        setSelectedEdge(null);
+        showToast("エッジを切断しました", "info");
+      };
+
+      const rotateRight = (currentNodes, xId) => {
+        const next = { ...currentNodes };
+        const x = next[xId];
+        if (!x || !x.left) return currentNodes;
+        
+        const yId = x.left;
+        const y = { ...next[yId] };
+        const xCopy = { ...x };
+        
+        const t2Id = y.right;
+        xCopy.left = t2Id;
+        if (t2Id && next[t2Id]) {
+          next[t2Id] = { ...next[t2Id], parent: xId };
+        }
+        
+        y.parent = xCopy.parent;
+        if (xCopy.parent && next[xCopy.parent]) {
+          const p = { ...next[xCopy.parent] };
+          if (p.left === xId) {
+            p.left = yId;
+          } else {
+            p.right = yId;
+          }
+          next[xCopy.parent] = p;
+        }
+        
+        y.right = xId;
+        xCopy.parent = yId;
+        
+        next[xId] = xCopy;
+        next[yId] = y;
+        
+        return next;
+      };
+
+      const rotateLeft = (currentNodes, xId) => {
+        const next = { ...currentNodes };
+        const x = next[xId];
+        if (!x || !x.right) return currentNodes;
+        
+        const yId = x.right;
+        const y = { ...next[yId] };
+        const xCopy = { ...x };
+        
+        const t2Id = y.left;
+        xCopy.right = t2Id;
+        if (t2Id && next[t2Id]) {
+          next[t2Id] = { ...next[t2Id], parent: xId };
+        }
+        
+        y.parent = xCopy.parent;
+        if (xCopy.parent && next[xCopy.parent]) {
+          const p = { ...next[xCopy.parent] };
+          if (p.left === xId) {
+            p.left = yId;
+          } else {
+            p.right = yId;
+          }
+          next[xCopy.parent] = p;
+        }
+        
+        y.left = xId;
+        xCopy.parent = yId;
+        
+        next[xId] = xCopy;
+        next[yId] = y;
+        
+        return next;
+      };
+
+      const applyRotationAndAlign = (updatedNodes, message, targetNodeId) => {
+        saveToHistory();
+        
+        const oldPos = targetNodeId ? getNodePos(targetNodeId) : null;
+        const freshLayout = calculateLayout(updatedNodes);
+        const newRootId = targetNodeId ? updatedNodes[targetNodeId]?.parent : null;
+        
+        const newPositions = {};
+        
+        if (oldPos && newRootId && freshLayout[newRootId]) {
+          const freshRootPos = freshLayout[newRootId];
+          const diffX = oldPos.x - freshRootPos.x;
+          const diffY = oldPos.y - freshRootPos.y;
+          
+          Object.keys(freshLayout).forEach(id => {
+            newPositions[id] = {
+              x: freshLayout[id].x + diffX,
+              y: freshLayout[id].y + diffY
+            };
+          });
+        } else {
+          Object.keys(freshLayout).forEach(id => {
+            newPositions[id] = { x: freshLayout[id].x, y: freshLayout[id].y };
+          });
+        }
+        
+        setNodes(updatedNodes);
+        setNodePositions(newPositions);
+        
+        if (message) {
+          showToast(message, "success");
+        }
+      };
+
+      const handleRotateClick = (direction) => {
+        if (!selectedNodeId) return;
+        const node = nodes[selectedNodeId];
+        
+        if (direction === 'right') {
+          if (!node.left) {
+            showToast("左の子ノードがないため、右回転できません", "error");
+            return;
+          }
+          setActiveRotationPreview({
+            baseNodeId: selectedNodeId,
+            direction: 'right',
+            pivotNodeId: node.left,
+            desc: `${node.val} を基点に右回転します。ピボット（左の子）であるノード ${nodes[node.left].val} を上に引き上げます。`,
+            type: 'manual'
+          });
+        } else {
+          if (!node.right) {
+            showToast("右の子ノードがないため、左回転できません", "error");
+            return;
+          }
+          setActiveRotationPreview({
+            baseNodeId: selectedNodeId,
+            direction: 'left',
+            pivotNodeId: node.right,
+            desc: `${node.val} を基点に左回転します。ピボット（右の子）であるノード ${nodes[node.right].val} を上に引き上げます。`,
+            type: 'manual'
+          });
+        }
+      };
+
+      const handleRotateConfirm = () => {
+        if (!activeRotationPreview) return;
+        const { baseNodeId, direction } = activeRotationPreview;
+        
+        const node = nodes[baseNodeId];
+        if (!node) {
+          setActiveRotationPreview(null);
+          return;
+        }
+        
+        let updated;
+        if (direction === 'right') {
+          updated = rotateRight(nodes, baseNodeId);
+        } else {
+          updated = rotateLeft(nodes, baseNodeId);
+        }
+        
+        applyRotationAndAlign(updated, `${node.val} を基点に${direction === 'right' ? '右' : 'left'}回転しました`, baseNodeId);
+        setActiveRotationPreview(null);
+      };
+
+      const handleRotateCancel = () => {
+        setActiveRotationPreview(null);
+        showToast("回転をキャンセルしました", "info");
+      };
+
+      const diagnoseImbalance = (currentNodes, currentBfs, currentHeights) => {
+        const targets = Object.keys(currentNodes).filter(
+          id => currentBfs[id] >= 2 || currentBfs[id] <= -2
+        );
+        
+        if (targets.length === 0) return null;
+        
+        const currentLayout = calculateLayout(currentNodes);
+        targets.sort((a, b) => (currentLayout[b]?.depth || 0) - (currentLayout[a]?.depth || 0));
+        
+        const targetId = targets[0];
+        const targetNode = currentNodes[targetId];
+        const bf = currentBfs[targetId];
+        
+        if (bf >= 2) {
+          const leftId = targetNode.left;
+          const leftBf = currentBfs[leftId] || 0;
+          const leftNode = currentNodes[leftId];
+          
+          if (leftBf >= 0) {
+            // LL型不平衡
+            return {
+              nodeId: targetId,
+              pivotId: leftId,
+              type: 'LL',
+              label: 'LL型不平衡',
+              steps: [
+                { action: 'right', nodeId: targetId, desc: `ピボット（左の子） ${leftNode.val} を上に持ち上げます（不平衡ノード ${targetNode.val} を「右回転」）。` }
+              ]
+            };
+          } else {
+            // LR型不平衡（二重回転）
+            const lrChildId = leftNode.right;
+            const lrChildNode = currentNodes[lrChildId];
+            return {
+              nodeId: targetId,
+              pivotId: lrChildId,
+              type: 'LR',
+              label: 'LR型二重不平衡',
+              steps: [
+                { action: 'left', nodeId: leftId, desc: `まず、ピボット ${lrChildNode?.val || ''} を左回転で上に持ち上げます（ノード ${leftNode.val} を「左回転」）。` },
+                { action: 'right', nodeId: targetId, desc: `次に、新しく左の子になった ${lrChildNode?.val || ''} を上に持ち上げます（不平衡ノード ${targetNode.val} を「右回転」）。` }
+              ]
+            };
+          }
+        } else {
+          const rightId = targetNode.right;
+          const rightBf = currentBfs[rightId] || 0;
+          const rightNode = currentNodes[rightId];
+          
+          if (rightBf <= 0) {
+            // RR型不平衡
+            return {
+              nodeId: targetId,
+              pivotId: rightId,
+              type: 'RR',
+              label: 'RR型不平衡',
+              steps: [
+                { action: 'left', nodeId: targetId, desc: `ピボット（右の子） ${rightNode.val} を上に持ち上げます（不平衡ノード ${targetNode.val} を「左回転」）。` }
+              ]
+            };
+          } else {
+            // RL型不平衡（二重回転）
+            const rlChildId = rightNode.left;
+            const rlChildNode = currentNodes[rlChildId];
+            return {
+              nodeId: targetId,
+              pivotId: rlChildId,
+              type: 'RL',
+              label: 'RL型二重不平衡',
+              steps: [
+                { action: 'right', nodeId: rightId, desc: `まず、ピボット ${rlChildNode?.val || ''} を右回転で上に持ち上げます（ノード ${rightNode.val} を「右回転」）。` },
+                { action: 'left', nodeId: targetId, desc: `次に、新しく右の子になった ${rlChildNode?.val || ''} を上に持ち上げます（不平衡ノード ${targetNode.val} を「左回転」）。` }
+              ]
+            };
+          }
+        }
+      };
+
+      const executeStep = () => {
+        if (!diagnosis) return;
+        const step = diagnosis.steps[0];
+        const baseNode = nodes[step.nodeId];
+        if (!baseNode) return;
+        
+        const pivotNodeId = step.action === 'right' ? baseNode.left : baseNode.right;
+        
+        setActiveRotationPreview({
+          baseNodeId: step.nodeId,
+          direction: step.action,
+          pivotNodeId,
+          desc: step.desc,
+          type: 'auto_step'
+        });
+      };
+
+      const executeAllSteps = () => {
+        let currentNodes = { ...nodes };
+        let loopCount = 0;
+        let initialTargetId = null;
+        
+        const { bfs: initialBfs, heights: initialHeights } = calculateHeightsAndBF(currentNodes);
+        const initialDiag = diagnoseImbalance(currentNodes, initialBfs, initialHeights);
+        if (initialDiag) {
+          initialTargetId = initialDiag.nodeId;
+        }
+        
+        while (loopCount < 10) {
+          const { bfs: currentBfs, heights: currentHeights } = calculateHeightsAndBF(currentNodes);
+          const diag = diagnoseImbalance(currentNodes, currentBfs, currentHeights);
+          
+          if (!diag) break;
+          
+          const step = diag.steps[0];
+          if (step.action === 'right') {
+            currentNodes = rotateRight(currentNodes, step.nodeId);
+          } else {
+            currentNodes = rotateLeft(currentNodes, step.nodeId);
+          }
+          loopCount++;
+        }
+        
+        applyRotationAndAlign(currentNodes, `すべての不平衡状態を解消しました！(${loopCount}ステップ)`, initialTargetId);
+      };
+
+      const startPuzzle = (type) => {
+        setSelectedNodeId(null);
+        setSelectedEdge(null);
+        setPuzzleId(type);
+        setSidebarOpen(false); // パズル開始時にモバイルドロワーを自動で閉じる
+        
+        let puzzleNodes = {};
+        if (type === 'LL') {
+          puzzleNodes = {
+            "n30": { id: "n30", val: 30, left: "n20", right: null, parent: null },
+            "n20": { id: "n20", val: 20, left: "n10", right: null, parent: "n30" },
+            "n10": { id: "n10", val: 10, left: null, right: null, parent: "n20" }
+          };
+        } else if (type === 'LR') {
+          puzzleNodes = {
+            "n30": { id: "n30", val: 30, left: "n10", right: null, parent: null },
+            "n10": { id: "n10", val: 10, left: null, right: "n20", parent: "n30" },
+            "n20": { id: "n20", val: 20, left: null, right: null, parent: "n10" }
+          };
+        } else if (type === 'RR') {
+          // 10 (根) - 20 (右) - 30 (右の右)
+          puzzleNodes = {
+            "n10": { id: "n10", val: 10, left: null, right: "n20", parent: null },
+            "n20": { id: "n20", val: 20, left: null, right: "n30", parent: "n10" },
+            "n30": { id: "n30", val: 30, left: null, right: null, parent: "n20" }
+          };
+        } else if (type === 'RL') {
+          // 10 (根) - 30 (右) - 20 (右の左)
+          puzzleNodes = {
+            "n10": { id: "n10", val: 10, left: null, right: "n30", parent: null },
+            "n30": { id: "n30", val: 30, left: "n20", right: null, parent: "n10" },
+            "n20": { id: "n20", val: 20, left: null, right: null, parent: "n30" }
+          };
+        }
+        
+        setNodes(puzzleNodes);
+        const puzzleLayout = calculateLayout(puzzleNodes);
+        const positions = {};
+        Object.keys(puzzleLayout).forEach(id => {
+          positions[id] = { x: puzzleLayout[id].x, y: puzzleLayout[id].y };
+        });
+        setNodePositions(positions);
+        showToast(`${type}不平衡パズル開始！ノードを平衡した状態に繋ぎ替えてください。`, "info");
+      };
+
+      const judgePuzzle = () => {
+        const n10 = nodes["n10"];
+        const n20 = nodes["n20"];
+        const n30 = nodes["n30"];
+        
+        if (!n10 || !n20 || !n30) {
+          showToast("パズルの必要ノードが欠損しています", "error");
+          return;
+        }
+        
+        const isRoot20 = n20.parent === null;
+        const isLeft10 = n20.left === "n10" && n10.parent === "n20";
+        const isRight30 = n20.right === "n30" && n30.parent === "n20";
+        const isLeafsEmpty = n10.left === null && n10.right === null && n30.left === null && n30.right === null;
+        
+        if (isRoot20 && isLeft10 && isRight30 && isLeafsEmpty) {
+          showToast("🎉 おめでとうございます！正しいAVL木に組み替えることができました！", "success");
+          setPuzzleId(null);
+        } else {
+          showToast("構造が違います。ノード20を根とし、10を左、30を右に接続してください。", "error");
+        }
+      };
+
+      const addNode = (e) => {
+        e.preventDefault();
+        const val = parseInt(newValue, 10);
+        if (isNaN(val)) {
+          showToast("数値を入力してください", "error");
+          return;
+        }
+        
+        const exists = Object.values(nodes).some(n => n.val === val);
+        if (exists) {
+          showToast(`数値 ${val} は既に存在します`, "error");
+          return;
+        }
+        
+        saveToHistory();
+
+        const id = `n${val}`;
+        const updated = {
+          ...nodes,
+          [id]: { id, val, left: null, right: null, parent: null }
+        };
+        
+        const roots = Object.values(nodes).filter(
+          node => !node.parent || !nodes[node.parent]
+        );
+        roots.sort((a, b) => a.val - b.val);
+        
+        let insertedParentId = null;
+        let direction = null;
+        
+        if (roots.length > 0) {
+          let currentId = roots[0].id;
+          while (currentId) {
+            const currentNode = updated[currentId];
+            insertedParentId = currentId;
+            if (val < currentNode.val) {
+              if (currentNode.left && updated[currentNode.left]) {
+                currentId = currentNode.left;
+              } else {
+                direction = 'left';
+                break;
+              }
+            } else {
+              if (currentNode.right && updated[currentNode.right]) {
+                currentId = currentNode.right;
+              } else {
+                direction = 'right';
+                break;
+              }
+            }
+          }
+          
+          if (insertedParentId && direction) {
+            updated[id].parent = insertedParentId;
+            const parentNode = { ...updated[insertedParentId] };
+            if (direction === 'left') {
+              parentNode.left = id;
+            } else {
+              parentNode.right = id;
+            }
+            updated[insertedParentId] = parentNode;
+          }
+        }
+        
+        const freshLayout = calculateLayout(updated);
+        const newPositions = {};
+        Object.keys(freshLayout).forEach(nodeId => {
+          newPositions[nodeId] = { x: freshLayout[nodeId].x, y: freshLayout[nodeId].y };
+        });
+        
+        setNodes(updated);
+        setNodePositions(newPositions);
+        setNewValue('');
+        
+        if (insertedParentId && direction) {
+          showToast(`ノード ${val} をノード ${updated[insertedParentId].val} の${direction === 'left' ? '左' : '右'}に自動接続しました`, "success");
+        } else {
+          showToast(`ノード ${val} を新しい根として追加しました`, "success");
+        }
+      };
+
+      const deleteSelectedNode = () => {
+        if (!selectedNodeId) return;
+        saveToHistory();
+        const toDelete = nodes[selectedNodeId];
+        const updated = { ...nodes };
+        
+        if (toDelete.parent && updated[toDelete.parent]) {
+          const p = { ...updated[toDelete.parent] };
+          if (p.left === selectedNodeId) p.left = null;
+          if (p.right === selectedNodeId) p.right = null;
+          updated[toDelete.parent] = p;
+        }
+        
+        if (toDelete.left && updated[toDelete.left]) {
+          updated[toDelete.left] = { ...updated[toDelete.left], parent: null };
+        }
+        if (toDelete.right && updated[toDelete.right]) {
+          updated[toDelete.right] = { ...updated[toDelete.right], parent: null };
+        }
+        
+        delete updated[selectedNodeId];
+        setNodes(updated);
+        setSelectedNodeId(null);
+        showToast(`ノード ${toDelete.val} を削除しました`, "info");
+      };
+
+      const handleReset = () => {
+        saveToHistory();
+        setNodes(INITIAL_NODES);
+        const initialLayout = calculateLayout(INITIAL_NODES);
+        const positions = {};
+        Object.keys(initialLayout).forEach(id => {
+          positions[id] = { x: initialLayout[id].x, y: initialLayout[id].y };
+        });
+        setNodePositions(positions);
+        setSelectedNodeId(null);
+        setSelectedEdge(null);
+        setPuzzleId(null);
+        setPan({ x: 100, y: 50 });
+        setZoom(1.0);
+        showToast("状態を初期状態にリセットしました", "info");
+      };
+
+      // ユーザーが手動で自動整列をトリガーするハンドラ
+      const handleAutoAlign = () => {
+        saveToHistory();
+        const freshLayout = calculateLayout(nodes);
+        const newPositions = {};
+        Object.keys(freshLayout).forEach(id => {
+          newPositions[id] = { x: freshLayout[id].x, y: freshLayout[id].y };
+        });
+        setNodePositions(newPositions);
+        showToast("木を自動整列しました", "info");
+      };
+
+      const renderEdge = (fromId, toId, type) => {
+        const fromPos = getNodePos(fromId);
+        const toPos = getNodePos(toId);
+        if (!fromPos || !toPos) return null;
+        
+        const portOffsetX = type === 'left' ? -18 : 18;
+        const startX = fromPos.x + portOffsetX;
+        const startY = fromPos.y + 20;
+        
+        const endX = toPos.x;
+        const endY = toPos.y - 20;
+        
+        const cpY1 = startY + 25;
+        const cpY2 = endY - 25;
+        
+        const pathD = `M ${startX} ${startY} C ${startX} ${cpY1}, ${endX} ${cpY2}, ${endX} ${endY}`;
+        const isSelected = selectedEdge && selectedEdge.fromId === fromId && selectedEdge.toId === toId && selectedEdge.type === type;
+        
+        return (
+          <g key={`${fromId}-${toId}-${type}`} className="group cursor-pointer">
+            <path
+              d={pathD}
+              fill="none"
+              stroke="transparent"
+              strokeWidth="16"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (activeRotationPreview) return;
+                if (mode === 'connection') {
+                  setSelectedEdge({ fromId, toId, type });
+                  setSelectedNodeId(null);
+                }
+              }}
+            />
+            <path
+              d={pathD}
+              fill="none"
+              stroke={isSelected ? '#f59e0b' : '#64748b'}
+              strokeWidth={isSelected ? '3.5' : '2.5'}
+              className="transition-all duration-200 group-hover:stroke-indigo-400 group-hover:stroke-[3px]"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (activeRotationPreview) return;
+                if (mode === 'connection') {
+                  setSelectedEdge({ fromId, toId, type });
+                  setSelectedNodeId(null);
+                }
+              }}
+            />
+            <polygon
+              points={`${endX},${endY} ${endX - 4},${endY - 7} ${endX + 4},${endY - 7}`}
+              fill={isSelected ? '#f59e0b' : '#64748b'}
+              className="transition-colors duration-200 group-hover:fill-indigo-400"
+            />
+          </g>
+        );
+      };
+
+      return (
+        <div className="flex flex-col h-screen overflow-hidden select-none bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 transition-colors duration-300">
+          
+          <header className="flex items-center justify-between px-4 sm:px-6 py-3 bg-gradient-to-r from-teal-600 via-teal-700 to-indigo-800 text-white shadow-md z-10">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* モバイル用メニュー開閉ボタン */}
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors lg:hidden shrink-0"
+                title="メニューを開く"
+              >
+                <IconMenu />
+              </button>
+              
+              <div className="p-1.5 sm:p-2 bg-white/10 rounded-lg backdrop-blur-sm shrink-0">
+                <IconRefresh className="animate-spin-slow" />
+              </div>
+              <div>
+                <h1 className="text-base sm:text-xl font-bold tracking-wide leading-tight">AVL木ビジュアル学習シミュレータ</h1>
+                <p className="text-[10px] sm:text-xs text-teal-100">ポインタの組み替えと回転プロセスの対話型学習</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 mt-2 sm:mt-0">
+              <button 
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                title="テーマ切り替え"
+              >
+                {darkMode ? <IconSun /> : <IconMoon />}
+              </button>
+              
+              <button 
+                onClick={handleReset}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-sm font-medium shadow-sm transition-colors"
+                title="シミュレータをリセット"
+              >
+                <IconUndo />
+                リセット
+              </button>
+            </div>
+          </header>
+
+          <div className="flex flex-col lg:flex-row flex-1 overflow-hidden relative">
+            
+            {/* モバイル用ドロワー背景オーバーレイ */}
+            {sidebarOpen && (
+              <div 
+                className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-20 lg:hidden"
+                onClick={() => setSidebarOpen(false)}
+              />
+            )}
+
+            {/* サイド操作パネル（モバイルでは左からのドロワー形式） */}
+            <aside className={`fixed inset-y-0 left-0 w-80 bg-white dark:bg-slate-800 shadow-2xl lg:shadow-lg border-r border-slate-200 dark:border-slate-700 p-5 flex flex-col gap-5 z-30 overflow-y-auto h-full transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+              sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}>
+              
+              {/* モバイル用サイドバーヘッダー（閉じるボタン） */}
+              <div className="flex items-center justify-between lg:hidden border-b border-slate-100 dark:border-slate-700 pb-3">
+                <span className="font-bold text-slate-700 dark:text-slate-200">操作メニュー</span>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
+                  title="メニューを閉じる"
+                >
+                  <IconX />
+                </button>
+              </div>
+              
+              {/* 操作ガイド */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs transition-colors">
+                <span className="font-bold text-slate-500 dark:text-slate-400 block mb-1">💡 操作ガイド</span>
+                {mode === 'connection' ? (
+                  <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-300 leading-tight">
+                    <li>L/Rハンドルから他のノードへドラッグして接続。</li>
+                    <li>既存エッジをタップして選択し、切断可能。</li>
+                    <li>背景をドラッグして画面移動（パン）。</li>
+                  </ul>
+                ) : (
+                  <ul className="list-disc pl-4 space-y-1 text-slate-600 dark:text-slate-300 leading-tight">
+                    <li>ノードをタップして選択します。</li>
+                    <li>選択後、左下の回転パネルから「左回転 / 右回転」を実行。</li>
+                    <li>背景をドラッグして画面移動（パン）。</li>
+                  </ul>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-2">学習モード選択</label>
+                <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl">
+                  <button
+                    onClick={() => {
+                      setMode('connection');
+                      setSelectedNodeId(null);
+                      setSelectedEdge(null);
+                    }}
+                    className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                      mode === 'connection' 
+                        ? 'bg-teal-600 text-white shadow-sm' 
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    接続組み替え
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMode('rotation');
+                      setSelectedNodeId(null);
+                      setSelectedEdge(null);
+                    }}
+                    className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                      mode === 'rotation' 
+                        ? 'bg-indigo-600 text-white shadow-sm' 
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    自動・手動回転
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+                <h3 className="text-sm font-bold flex items-center gap-1.5 mb-2 text-indigo-500 dark:text-indigo-400">
+                  <IconAward />
+                  接続組み替えパズル
+                </h3>
+                <div className="flex flex-col gap-1.5">
+                  <button
+                    onClick={() => startPuzzle('LL')}
+                    className={`w-full py-1.5 px-3 rounded-lg text-xs font-medium text-left transition-colors border ${
+                      puzzleId === 'LL' 
+                        ? 'bg-amber-500 border-amber-600 text-white' 
+                        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    🎯 LL型不平衡を解消せよ！
+                  </button>
+                  <button
+                    onClick={() => startPuzzle('LR')}
+                    className={`w-full py-1.5 px-3 rounded-lg text-xs font-medium text-left transition-colors border ${
+                      puzzleId === 'LR' 
+                        ? 'bg-amber-500 border-amber-600 text-white' 
+                        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    🎯 LR型二重回転を解消せよ！
+                  </button>
+                  <button
+                    onClick={() => startPuzzle('RR')}
+                    className={`w-full py-1.5 px-3 rounded-lg text-xs font-medium text-left transition-colors border ${
+                      puzzleId === 'RR' 
+                        ? 'bg-amber-500 border-amber-600 text-white' 
+                        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    🎯 RR型不平衡を解消せよ！
+                  </button>
+                  <button
+                    onClick={() => startPuzzle('RL')}
+                    className={`w-full py-1.5 px-3 rounded-lg text-xs font-medium text-left transition-colors border ${
+                      puzzleId === 'RL' 
+                        ? 'bg-amber-500 border-amber-600 text-white' 
+                        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    🎯 RL型二重回転を解消せよ！
+                  </button>
+                  {/* 
+                    【パズル・プリセット拡張のヒント】
+                    新しい課題を追加したい場合は、以下の手順を行います。
+                    1. ここに新しいボタンを作成します (例: startPuzzle('MY_PUZZLE'))
+                    2. index_standalone.html 内の startPuzzle 関数内に、該当する 'MY_PUZZLE' の初期ノード配置 (puzzleNodes) を追加します。
+                  */}
+                  
+                  {puzzleId && (
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={judgePuzzle}
+                        className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs tracking-wider shadow transition-colors"
+                      >
+                        判定する
+                      </button>
+                      <button
+                        onClick={() => {
+                          setPuzzleId(null);
+                          handleReset();
+                        }}
+                        className="py-2 px-3 rounded-lg bg-slate-200 dark:bg-slate-750 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-350 transition-colors"
+                      >
+                        終了
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+                <h3 className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">ノード操作</h3>
+                <form onSubmit={addNode} className="flex gap-2 mb-3">
+                  <input
+                    type="number"
+                    value={newValue}
+                    onChange={(e) => setNewValue(e.target.value)}
+                    placeholder="数値 (例: 25)"
+                    disabled={!!activeRotationPreview}
+                    className="flex-1 px-3 py-2 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!!activeRotationPreview}
+                    className="p-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="ノードを追加"
+                  >
+                    <IconPlus />
+                  </button>
+                </form>
+                
+                {selectedNodeId && (
+                  <button
+                    onClick={deleteSelectedNode}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow transition-colors"
+                  >
+                    <IconTrash />
+                    ノード {nodes[selectedNodeId]?.val} を削除
+                  </button>
+                )}
+                
+                {selectedEdge && mode === 'connection' && (
+                  <button
+                    onClick={disconnectSelectedEdge}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow transition-colors"
+                  >
+                    <IconTrash />
+                    選択中のエッジを切断
+                  </button>
+                )}
+              </div>
+
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-auto">
+                <h3 className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">不平衡診断エンジン</h3>
+                {diagnosis ? (
+                  <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 flex flex-col gap-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <IconAlert />
+                      <span className="text-sm font-bold text-rose-700 dark:text-rose-400">{diagnosis.label}を検出</span>
+                    </div>
+                    <div className="text-xs text-rose-600 dark:text-rose-300 font-medium space-y-1">
+                      <div>不平衡ノード: <span className="font-bold underline">{nodes[diagnosis.nodeId]?.val}</span></div>
+                      {diagnosis.pivotId && (
+                        <div>ピボット (基点): <span className="font-bold underline">{nodes[diagnosis.pivotId]?.val}</span></div>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal pl-1 border-l-2 border-rose-300 dark:border-rose-700">
+                      {diagnosis.steps[0].desc}
+                    </div>
+                    <div className="flex gap-1.5 mt-1.5">
+                      <button
+                        onClick={executeStep}
+                        disabled={!!activeRotationPreview}
+                        className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <IconPlay />
+                        1手実行
+                      </button>
+                      <button
+                        onClick={executeAllSteps}
+                        disabled={!!activeRotationPreview}
+                        className="flex-1 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-650 text-white font-semibold text-xs transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        自動全解決
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 flex items-center gap-2 text-emerald-800 dark:text-emerald-400">
+                    <IconCheck />
+                    <span className="text-xs font-semibold">現在、木は美しく平衡しています！</span>
+                  </div>
+                )}
+              </div>
+            </aside>
+
+            <main className="flex-1 relative h-full bg-slate-50 dark:bg-slate-950 overflow-hidden animate-fade-in">
+
+              <div className="absolute bottom-4 right-4 flex items-center gap-1.5 z-10 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-md transition-colors">
+                <button 
+                  onClick={handleUndo}
+                  disabled={history.length === 0 || !!activeRotationPreview}
+                  className={`flex items-center gap-1 py-1.5 px-3 rounded-lg transition-colors text-xs font-semibold border shadow-sm shrink-0 ${
+                    (history.length === 0 || !!activeRotationPreview)
+                      ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600'
+                  }`}
+                  title="前の状態に戻す"
+                >
+                  <IconUndo className="w-3.5 h-3.5" />
+                  一手戻す
+                </button>
+                <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                <button 
+                  onClick={handleAutoAlign}
+                  disabled={!!activeRotationPreview}
+                  className={`flex items-center gap-1 py-1.5 px-3 rounded-lg transition-colors text-xs font-semibold border shadow-sm shrink-0 ${
+                    !!activeRotationPreview
+                      ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600'
+                  }`}
+                  title="木を自動整列する"
+                >
+                  <IconRefresh className="w-3.5 h-3.5" />
+                  自動整列
+                </button>
+                <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                <button 
+                  onClick={() => setZoom(z => Math.max(0.4, z - 0.1))}
+                  className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300"
+                  title="ズームアウト"
+                >
+                  <IconZoomOut />
+                </button>
+                <span className="text-xs font-semibold px-1 text-slate-500 dark:text-slate-400 min-w-12 text-center">{Math.round(zoom * 100)}%</span>
+                <button 
+                  onClick={() => setZoom(z => Math.min(2.0, z + 0.1))}
+                  className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300"
+                  title="ズームイン"
+                >
+                  <IconZoomIn />
+                </button>
+                <button 
+                  onClick={() => { setZoom(1.0); setPan({ x: 100, y: 50 }); }}
+                  className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300"
+                  title="表示リセット"
+                >
+                  <IconMaximize />
+                </button>
+              </div>
+
+              <svg
+                ref={svgRef}
+                className="w-full h-full cursor-grab active:cursor-grabbing canvas-bg touch-action-none"
+                onPointerDown={handlePointerDownCanvas}
+                onPointerMove={handlePointerMoveCanvas}
+                onPointerUp={handlePointerUpCanvas}
+                style={{ touchAction: 'none' }}
+              >
+                <g ref={gRef} transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
+                  
+                  {Object.values(nodes).map(node => {
+                    const elements = [];
+                    if (node.left && nodes[node.left]) {
+                      elements.push(renderEdge(node.id, node.left, 'left'));
+                    }
+                    if (node.right && nodes[node.right]) {
+                      elements.push(renderEdge(node.id, node.right, 'right'));
+                    }
+                    return elements;
+                  })}
+
+                  {dragStart && dragCurrent && (
+                    (() => {
+                      let endX = dragCurrent.x;
+                      let endY = dragCurrent.y;
+                      let isLoop = false;
+                      
+                      if (dragHoverNodeId && getNodePos(dragHoverNodeId)) {
+                        const hoverPos = getNodePos(dragHoverNodeId);
+                        endX = hoverPos.x;
+                        endY = hoverPos.y - 20;
+                        isLoop = wouldCauseLoop(dragStart.nodeId, dragHoverNodeId);
+                      }
+                      
+                      let strokeColor = '#0ea5e9';
+                      if (dragHoverNodeId) {
+                        strokeColor = isLoop ? '#f59e0b' : '#10b981';
+                      }
+                      
+                      const cpY1 = dragStart.startY + 25;
+                      const cpY2 = endY - 25;
+                      const dragPathD = `M ${dragStart.startX} ${dragStart.startY} C ${dragStart.startX} ${cpY1}, ${endX} ${cpY2}, ${endX} ${endY}`;
+                      
+                      return (
+                        <g pointerEvents="none">
+                          <path
+                            d={dragPathD}
+                            fill="none"
+                            stroke={strokeColor}
+                            strokeWidth="3"
+                            strokeDasharray="4 4"
+                          />
+                          <circle
+                            cx={endX}
+                            cy={endY}
+                            r="5"
+                            fill={strokeColor}
+                          />
+                          {isLoop && (
+                            <text
+                              x={endX}
+                              y={endY - 10}
+                              textAnchor="middle"
+                              fontSize="9"
+                              fontWeight="bold"
+                              fill="#f59e0b"
+                            >
+                              親リンク自動切断
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })()
+                  )}
+
+                  {/* --- 回転プレビューの描画 --- */}
+                  {activeRotationPreview && (() => {
+                    const { baseNodeId, direction, pivotNodeId } = activeRotationPreview;
+                    const basePos = getNodePos(baseNodeId);
+                    const pivotPos = getNodePos(pivotNodeId);
+                    if (!basePos) return null;
+                    
+                    const elements = [];
+                    
+                    // 1. ピボットノードの鼓動ハイライト
+                    if (pivotPos) {
+                      elements.push(
+                        <g key="pivot-highlight" pointerEvents="none">
+                          <circle
+                            cx={pivotPos.x}
+                            cy={pivotPos.y}
+                            r="20"
+                            fill="none"
+                            stroke="#8b5cf6"
+                            strokeWidth="3"
+                          >
+                            <animate attributeName="r" values="20;32;20" dur="1.5s" repeatCount="indefinite" />
+                            <animate attributeName="opacity" values="1;0.1;1" dur="1.5s" repeatCount="indefinite" />
+                          </circle>
+                          <circle
+                            cx={pivotPos.x}
+                            cy={pivotPos.y}
+                            r="25"
+                            fill="none"
+                            stroke="#8b5cf6"
+                            strokeWidth="1.5"
+                            strokeDasharray="3 3"
+                            className="animate-spin"
+                            style={{ transformOrigin: `${pivotPos.x}px ${pivotPos.y}px`, animationDuration: '6s' }}
+                          />
+                        </g>
+                      );
+                    }
+                    
+                    // 2. 回転方向の円弧矢印
+                    const bx = basePos.x;
+                    const by = basePos.y;
+                    if (direction === 'right') {
+                      const pathD = `M ${bx - 32} ${by - 14} A 35 35 0 0 1 ${bx + 32} ${by - 14}`;
+                      const arrowPoints = `${bx + 32},${by - 14} ${bx + 24},${by - 19} ${bx + 27},${by - 8}`;
+                      elements.push(
+                        <g key="rotation-arrow" pointerEvents="none">
+                          <path
+                            d={pathD}
+                            fill="none"
+                            stroke="#8b5cf6"
+                            strokeWidth="3.5"
+                            strokeDasharray="4 4"
+                            className="transition-all duration-300"
+                          >
+                            <animate attributeName="stroke-dashoffset" values="20;0" dur="1s" repeatCount="indefinite" />
+                          </path>
+                          <polygon
+                            points={arrowPoints}
+                            fill="#8b5cf6"
+                          />
+                        </g>
+                      );
+                    } else {
+                      const pathD = `M ${bx + 32} ${by - 14} A 35 35 0 0 0 ${bx - 32} ${by - 14}`;
+                      const arrowPoints = `${bx - 32},${by - 14} ${bx - 27},${by - 8} ${bx - 24},${by - 19}`;
+                      elements.push(
+                        <g key="rotation-arrow" pointerEvents="none">
+                          <path
+                            d={pathD}
+                            fill="none"
+                            stroke="#8b5cf6"
+                            strokeWidth="3.5"
+                            strokeDasharray="4 4"
+                            className="transition-all duration-300"
+                          >
+                            <animate attributeName="stroke-dashoffset" values="0;20" dur="1s" repeatCount="indefinite" />
+                          </path>
+                          <polygon
+                            points={arrowPoints}
+                            fill="#8b5cf6"
+                          />
+                        </g>
+                      );
+                    }
+                    
+                    return elements;
+                  })()}
+
+                  {Object.entries(nodes).map(([id, node]) => {
+                    const pos = getNodePos(id);
+                    if (!pos) return null;
+                    
+                    const bf = bfs[id] || 0;
+                    const h = heights[id] || 0;
+                    
+                    const isSelected = selectedNodeId === id;
+                    const isDragHover = dragHoverNodeId === id;
+                    const isDragHoverLoop = isDragHover && dragStart && wouldCauseLoop(dragStart.nodeId, id);
+                    
+                    let borderStroke = 'none';
+                    let borderStrokeWidth = '0';
+                    if (isDragHover) {
+                      borderStroke = isDragHoverLoop ? '#f59e0b' : '#10b981';
+                      borderStrokeWidth = '3';
+                    }
+
+                    return (
+                      <g 
+                        key={id} 
+                        transform={`translate(${pos.x}, ${pos.y})`}
+                        className="select-none"
+                      >
+                        {isSelected && (
+                          <circle
+                            r="29"
+                            fill="none"
+                            stroke="#f59e0b"
+                            strokeWidth="2"
+                            className="animate-pulse"
+                          />
+                        )}
+                        
+                        <circle
+                          r="20"
+                          fill={darkMode ? '#1e293b' : '#ffffff'}
+                          stroke={isSelected ? '#f59e0b' : (isDragHover ? borderStroke : '#3b82f6')}
+                          strokeWidth={isSelected ? '3' : (isDragHover ? borderStrokeWidth : '2')}
+                          className="filter drop-shadow-md cursor-pointer hover:stroke-indigo-400 transition-colors"
+                          onPointerDown={(e) => handleNodePointerDown(e, id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEdge(null);
+                            setSelectedNodeId(id);
+                          }}
+                        />
+                        
+                        <text
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fill={darkMode ? '#f8fafc' : '#0f172a'}
+                          fontWeight="bold"
+                          fontSize="13"
+                          className="pointer-events-none cursor-pointer"
+                        >
+                          {node.val}
+                        </text>
+
+                        <g transform="translate(0, -32)" className="pointer-events-none">
+                          <rect
+                            x="-22"
+                            y="-10"
+                            width="44"
+                            height="18"
+                            rx="4"
+                            fill={darkMode ? '#334155' : '#f1f5f9'}
+                            fillOpacity={darkMode ? 0.9 : 0.95}
+                            stroke={darkMode ? '#475569' : '#e2e8f0'}
+                            strokeWidth="1"
+                          />
+                          <text
+                            textAnchor="middle"
+                            fontSize="9"
+                            fontWeight="semibold"
+                            fill={darkMode ? '#cbd5e1' : '#475569'}
+                          >
+                            {`bf:${bf} h:${h}`}
+                          </text>
+                        </g>
+
+                        {(bf >= 2 || bf <= -2) && (
+                          <g transform="translate(16, -16)" className="pointer-events-none">
+                            <circle
+                              r="7.5"
+                              fill="#ef4444"
+                            />
+                            <text
+                              textAnchor="middle"
+                              dominantBaseline="central"
+                              fill="#ffffff"
+                              fontSize="10"
+                              fontWeight="black"
+                            >
+                              !
+                            </text>
+                            <animateTransform
+                              attributeName="transform"
+                              type="translate"
+                              values="16,-16; 16,-20; 16,-16"
+                              dur="1.2s"
+                              repeatCount="indefinite"
+                            />
+                          </g>
+                        )}
+
+                        {mode === 'connection' && (
+                          <g>
+                            <g transform="translate(-18, 20)">
+                              <circle
+                                r="15"
+                                fill="transparent"
+                                className="cursor-crosshair"
+                                onPointerDown={(e) => handlePortPointerDown(e, id, 'L')}
+                              />
+                              <circle
+                                r="6.5"
+                                fill="#0f766e"
+                                stroke="#ffffff"
+                                strokeWidth="1.5"
+                                className="pointer-events-none"
+                              />
+                              <text
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fill="#ffffff"
+                                fontSize="8"
+                                fontWeight="bold"
+                                className="pointer-events-none"
+                              >
+                                L
+                              </text>
+                            </g>
+
+                            <g transform="translate(18, 20)">
+                              <circle
+                                r="15"
+                                fill="transparent"
+                                className="cursor-crosshair"
+                                onPointerDown={(e) => handlePortPointerDown(e, id, 'R')}
+                              />
+                              <circle
+                                r="6.5"
+                                fill="#0f766e"
+                                stroke="#ffffff"
+                                strokeWidth="1.5"
+                                className="pointer-events-none"
+                              />
+                              <text
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fill="#ffffff"
+                                fontSize="8"
+                                fontWeight="bold"
+                                className="pointer-events-none"
+                              >
+                                R
+                              </text>
+                            </g>
+                          </g>
+                        )}
+                      </g>
+                    );
+                  })}
+                </g>
+              </svg>
+
+              {mode === 'rotation' && selectedNodeId && !activeRotationPreview && (
+                <div className="absolute bottom-16 left-4 bg-white/95 dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-lg rounded-2xl p-4 flex flex-col gap-2.5 z-10 max-w-xs transition-colors">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                    ノード {nodes[selectedNodeId]?.val} の手動回転
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleRotateClick('left')}
+                      className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors flex items-center justify-center gap-1"
+                    >
+                      <IconRefresh className="w-3.5 h-3.5 scale-x-[-1]" />
+                      左回転 (Left)
+                    </button>
+                    <button
+                      onClick={() => handleRotateClick('right')}
+                      className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors flex items-center justify-center gap-1"
+                    >
+                      <IconRefresh className="w-3.5 h-3.5" />
+                      右回転 (Right)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* --- 回転プレビュー確認UIパネル --- */}
+              {activeRotationPreview && (
+                <div className="absolute bottom-16 left-4 bg-white/95 dark:bg-slate-800/95 border-2 border-indigo-500 shadow-2xl rounded-2xl p-5 flex flex-col gap-3.5 z-40 max-w-xs w-[calc(100%-2rem)] backdrop-blur-md transition-all">
+                  <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                    <IconRefresh className="w-5 h-5 animate-spin-slow" />
+                    <span className="text-xs font-bold tracking-wider uppercase">回転実行の確認</span>
+                  </div>
+                  <p className="text-xs text-slate-650 dark:text-slate-300 font-semibold leading-relaxed">
+                    {activeRotationPreview.desc}
+                  </p>
+                  <div className="flex gap-2.5 mt-1">
+                    <button
+                      onClick={handleRotateCancel}
+                      className="flex-1 py-2 px-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors shadow-sm"
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      onClick={handleRotateConfirm}
+                      className="flex-1 py-2 px-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-xs font-bold transition-colors shadow-md flex items-center justify-center gap-1"
+                    >
+                      <IconCheck className="w-3.5 h-3.5 mr-1" />
+                      OK
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {toast && (
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50">
+                  <div className={`px-5 py-3 rounded-2xl shadow-xl border flex items-center gap-2.5 text-sm font-semibold max-w-sm backdrop-blur-md transition-all ${
+                    toast.type === 'success' 
+                      ? 'bg-emerald-500/95 border-emerald-600 text-white shadow-emerald-500/20'
+                      : toast.type === 'error'
+                      ? 'bg-rose-500/95 border-rose-600 text-white shadow-rose-500/20'
+                      : 'bg-slate-800/95 border-slate-700 text-slate-100 shadow-slate-900/40'
+                  }`}>
+                    {toast.type === 'success' && <IconCheck />}
+                    {toast.type === 'error' && <IconAlert />}
+                    <span>{toast.message}</span>
+                  </div>
+                </div>
+              )}
+            </main>
+          </div>
+        </div>
+      );
+    }
+
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<App />);
+  </script>
+</body>
+</html>
