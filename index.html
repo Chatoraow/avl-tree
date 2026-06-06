@@ -1040,7 +1040,7 @@
       };
 
       return (
-        <div className="flex flex-col h-screen h-[100dvh] overflow-hidden select-none bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 transition-colors duration-300">
+        <div className="flex flex-col h-screen h-[100dvh] pb-[50px] lg:pb-0 overflow-hidden select-none bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 transition-colors duration-300">
           
           <header className="flex items-center justify-between px-4 sm:px-6 py-3 bg-gradient-to-r from-teal-600 via-teal-700 to-indigo-800 text-white shadow-md z-10">
             <div className="flex items-center gap-2 sm:gap-3">
@@ -1093,7 +1093,7 @@
             )}
 
             {/* サイド操作パネル（モバイルでは左からのドロワー形式） */}
-            <aside className={`fixed inset-y-0 left-0 w-80 bg-white dark:bg-slate-800 shadow-2xl lg:shadow-lg border-r border-slate-200 dark:border-slate-700 p-5 flex flex-col gap-5 z-30 overflow-y-auto h-full transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+            <aside className={`fixed inset-y-0 left-0 w-80 bg-white dark:bg-slate-800 shadow-2xl lg:shadow-lg border-r border-slate-200 dark:border-slate-700 p-5 pb-[70px] lg:pb-5 flex flex-col gap-5 z-30 overflow-y-auto h-full transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }`}>
               
@@ -1765,7 +1765,7 @@
               </svg>
 
               {mode === 'rotation' && selectedNodeId && !activeRotationPreview && (
-                <div className="absolute bottom-16 left-4 bg-white/95 dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-lg rounded-2xl p-4 flex flex-col gap-2.5 z-10 max-w-xs transition-colors">
+                <div className="absolute bottom-[74px] sm:bottom-16 left-4 bg-white/95 dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-lg rounded-2xl p-4 flex flex-col gap-2.5 z-10 max-w-xs transition-colors">
                   <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
                     ノード {nodes[selectedNodeId]?.val} の手動回転
                   </span>
@@ -1790,7 +1790,7 @@
 
               {/* --- 回転プレビュー確認UIパネル --- */}
               {activeRotationPreview && (
-                <div className="absolute bottom-16 left-4 bg-white/95 dark:bg-slate-800/95 border-2 border-indigo-500 shadow-2xl rounded-2xl p-5 flex flex-col gap-3.5 z-40 max-w-xs w-[calc(100%-2rem)] backdrop-blur-md transition-all">
+                <div className="absolute bottom-[74px] sm:bottom-16 left-4 bg-white/95 dark:bg-slate-800/95 border-2 border-indigo-500 shadow-2xl rounded-2xl p-5 flex flex-col gap-3.5 z-40 max-w-xs w-[calc(100%-2rem)] backdrop-blur-md transition-all">
                   <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
                     <IconRefresh className="w-5 h-5 animate-spin-slow" />
                     <span className="text-xs font-bold tracking-wider uppercase">回転実行の確認</span>
@@ -1817,7 +1817,7 @@
               )}
 
               {toast && (
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50">
+                <div className="absolute bottom-[74px] sm:bottom-6 left-1/2 -translate-x-1/2 z-50">
                   <div className={`px-5 py-3 rounded-2xl shadow-xl border flex items-center gap-2.5 text-sm font-semibold max-w-sm backdrop-blur-md transition-all ${
                     toast.type === 'success' 
                       ? 'bg-emerald-500/95 border-emerald-600 text-white shadow-emerald-500/20'
